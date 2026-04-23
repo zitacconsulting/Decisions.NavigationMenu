@@ -117,6 +117,27 @@ public class NavigationMenuConfig : AbstractFolderEntity, INotifyPropertyChanged
         });
 
         actions.Add(new GetStringAction(
+            "Copy", "Create a copy of this configuration", null,
+            (ctx, entityId, newName) =>
+            {
+                if (string.IsNullOrWhiteSpace(newName)) return;
+                var original = new ORM<NavigationMenuConfig>().Fetch(entityId);
+                if (original == null) return;
+                var copy = new NavigationMenuConfig
+                {
+                    EntityName       = newName,
+                    EntityFolderID   = original.EntityFolderID,
+                    Items            = original.Items,
+                    ThemeId          = original.ThemeId,
+                    SelectionBusName = original.SelectionBusName
+                };
+                new ORM<NavigationMenuConfig>().Store(copy);
+            },
+            "Copy Configuration", "Name for the copy",
+            $"Copy of {EntityName}", GetTextType.ShortText)
+        { EnforceNotEmptyRule = true, GroupName = "Manage" });
+
+        actions.Add(new GetStringAction(
             "Export JSON", "Copy this configuration as JSON", "JSON",
             (ctx, entityId, _) => { },
             "Export Configuration", "JSON (copy to clipboard)",

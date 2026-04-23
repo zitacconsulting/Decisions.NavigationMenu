@@ -170,6 +170,31 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
         });
 
         actions.Add(new GetStringAction(
+            "Copy", "Create a copy of this theme", null,
+            (ctx, entityId, newName) =>
+            {
+                if (string.IsNullOrWhiteSpace(newName)) return;
+                var original = new ORM<NavigationMenuTheme>().Fetch(entityId);
+                if (original == null) return;
+                var copy = new NavigationMenuTheme
+                {
+                    EntityName             = newName,
+                    EntityFolderID         = original.EntityFolderID,
+                    TopLevelStyle          = original.TopLevelStyle,
+                    SubItemStyle           = original.SubItemStyle,
+                    ControlBackgroundColor = original.ControlBackgroundColor,
+                    Orientation            = original.Orientation,
+                    HorizontalJustify      = original.HorizontalJustify,
+                    VerticalAlign          = original.VerticalAlign,
+                    ItemSpacing            = original.ItemSpacing
+                };
+                new ORM<NavigationMenuTheme>().Store(copy);
+            },
+            "Copy Theme", "Name for the copy",
+            $"Copy of {EntityName}", GetTextType.ShortText)
+        { EnforceNotEmptyRule = true, GroupName = "Manage" });
+
+        actions.Add(new GetStringAction(
             "Export JSON", "Copy this theme as JSON", "JSON",
             (ctx, entityId, _) => { },
             "Export Theme", "JSON (copy to clipboard)",
