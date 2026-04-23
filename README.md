@@ -22,7 +22,7 @@ A custom page component module for the [Decisions](https://decisions.com) platfo
 ## Installation
 
 ### Option 1: Install Pre-built Module
-1. Download the compiled module — this is the `Decisions.NavigationMenu.zip` file from the [Releases](../../releases) page, **not** the "Download ZIP" button on the repository page (that downloads the source code, not the module)
+1. Download [Decisions.NavigationMenu.zip](Decisions.NavigationMenu.zip) — click the link, then click the **Download** button on the file page
 2. Log into the Decisions Portal
 3. Navigate to **System > Administration > Features**
 4. Click **Install Module**
