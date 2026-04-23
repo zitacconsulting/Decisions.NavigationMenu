@@ -98,13 +98,21 @@ public class NavigationMenuConfig : AbstractFolderEntity, INotifyPropertyChanged
         }
     }
 
-[DataMember]
+    [DataMember]
     [WritableValue]
     [PropertyClassification(0, "Selection Bus Name", new[] { "Selection Bus" })]
     public string SelectionBusName
     {
         get => selectionBusName;
         set { selectionBusName = value; OnPropertyChanged(nameof(SelectionBusName)); }
+    }
+
+    [InfoOrWarningEditor(false, null, true)]
+    [PropertyClassification(1, "Selection Bus Name Info", new[] { "Selection Bus" })]
+    public string SelectionBusNameNote
+    {
+        get => "The name of the selection bus channel shared with other components on the page. Required if any menu item has a Selection Bus Value configured.";
+        set { }
     }
 
     public override BaseActionType[] GetActions(AbstractUserContext userContext, EntityActionType[] types)

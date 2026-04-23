@@ -7,8 +7,11 @@ A custom page component module for the [Decisions](https://decisions.com) platfo
 ## Features
 
 - **Flexible navigation** — each menu item can navigate to a target folder and page, trigger an action flow, publish a value to the selection bus, or any combination of these. For example, an item can navigate to a folder and also publish a selection bus value at the same time.
+- **URL navigation** — items can open any URL in the same page or a new browser tab, independent of Decisions folder navigation.
+- **Open in new window** — folder navigation items can open in a new browser tab, with optional portal chrome hiding and automatic selection bus value and flow propagation to the new page.
 - **Dropdown sub-items** — items support nested sub-items rendered as dropdowns, with recursive permission filtering applied at every level.
-- **Theming** — visual appearance is controlled by a reusable theme entity covering orientation, alignment, item spacing, background color, and independent style settings for top-level items and sub-items (colors, hover colors, selected colors, font family, size, and weight).
+- **Separator support** — a "Separator After" flag on any item inserts a visual divider between items, with configurable color and thickness in the theme.
+- **Theming** — visual appearance is controlled by a reusable theme entity covering orientation, alignment, item spacing, background color, separator style, and independent style settings for top-level items and sub-items (colors, hover colors, selected colors, font family, size, and weight).
 - **Icon support** — each item can display an icon with configurable left or right positioning.
 - **Selection bus integration** — items can publish a value to a named selection bus channel, enabling coordination with other components on the same page.
 - **Action flow support** — items can trigger a User Action Flow (Folder Aware) in a dialog, with full page context passed automatically.
@@ -49,6 +52,8 @@ Navigate to **Navigation Menu > Themes** and create a theme to control the visua
 | Control Background Color | Background color of the entire menu control. |
 | Top-Level Item Style | Colors (background, hover, selected, selected-hover) and font settings for top-level items. |
 | Sub-Item Style | Colors and font settings for dropdown sub-items. |
+| Separator Color | Color of separators inserted between items. |
+| Separator Thickness | Thickness in pixels of separators. |
 
 Themes can be exported and imported as JSON using the **Export JSON** and **Import JSON** actions on the theme entity.
 
@@ -71,19 +76,26 @@ Each item in the **Menu Items** list supports:
 | Property | Section | Description |
 |---|---|---|
 | Label | Item | The display text of the item. |
+| Separator After | Item | Inserts a visual divider after this item. Not rendered after the last item in a list. |
 | Sub Items | Dropdown | Nested items shown in a dropdown when the parent is hovered or clicked. |
-| Target Folder | Navigation | Navigates to this folder when clicked. |
-| Page Name | Navigation | The page within the target folder to navigate to. |
-| Open in New Window | Navigation | Opens the navigation target in a new browser tab. |
-| Action Flow | Action | A User Action Flow (Folder Aware) to run in a dialog when clicked. |
-| Selection Bus Value | Selection Bus | Value to publish to the Selection Bus Name defined on the config. |
+| Open URL | Navigation | When enabled, the item opens a custom URL instead of navigating within Decisions. Enabling this hides all folder, flow, and selection bus fields. |
+| URL | Navigation | The URL to open. Visible when **Open URL** is enabled. |
+| Open In New Page | Navigation | Opens the URL in a new browser tab. Defaults to enabled. Visible when **Open URL** is enabled. |
+| Target Folder | Navigation | Navigates to this folder when clicked. Hidden when **Open URL** is enabled. |
+| Page Name | Navigation | The page within the target folder to navigate to. Visible when a Target Folder is selected. |
+| Open in New Window | Navigation | Opens the folder navigation target in a new browser tab. Visible when a Target Folder is selected. |
+| Hide Portal | Navigation | Hides the Decisions portal chrome in the new window (appends `chrome=off` to the URL). Visible when **Open in New Window** is enabled. |
+| Action Flow | Action | A User Action Flow (Folder Aware) to run in a dialog when clicked. When used with **Open in New Window**, the flow is triggered automatically on the new page after it loads. Hidden when **Open URL** is enabled. |
+| Selection Bus Value | Selection Bus | Value to publish to the Selection Bus Name defined on the config. When used with **Open in New Window**, the value is passed to the new page via URL. Hidden when **Open URL** is enabled. |
 | Icon | Style | An image to display alongside the label. |
 | Icon Position | Style | Whether the icon appears to the left or right of the label. |
 | Style Override | Style | Per-item style that overrides the theme's top-level or sub-item style. |
 
 **Target Folder, Action Flow, and Selection Bus Value are independent** — you can configure any combination on the same item. For example, an item can navigate to a folder and also run a flow, or navigate and publish a selection bus value simultaneously.
 
-**Permission filtering** applies per field: if a Target Folder is set, the user must have `CanView` on it for the item to appear. If an Action Flow is set, the user must have `CanUse` on the flow's folder. Both conditions must pass if both are configured. Items that only have a Selection Bus Value (no folder or flow) are always shown.
+**Open URL mode** is mutually exclusive with folder navigation, flows, and selection bus. Use it when the link target is an external site or a Decisions URL that you want to compose manually.
+
+**Permission filtering** applies per field: if a Target Folder is set, the user must have `CanView` on it for the item to appear. If an Action Flow is set, the user must have `CanUse` on the flow's folder. Both conditions must pass if both are configured. Items that only have a Selection Bus Value (no folder or flow) are always shown. URL items are always shown regardless of permissions.
 
 ### Step 4 — Add the Component to a Page
 

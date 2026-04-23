@@ -36,22 +36,54 @@ public class NavigationMenuItemDef : IProjectAware
 
     [WritableValue]
     [DataMember]
-    [PropertyClassification(1, "Target Folder", new[] { "Navigation" })]
+    [PropertyClassification(1, "Separator After", new[] { "Item" })]
+    public bool SeparatorAfter { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(0, "Open URL", new[] { "Navigation" })]
+    public bool OpenUrl { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(1, "URL", new[] { "Navigation" })]
+    [PropertyHiddenByValue(nameof(OpenUrl), false, true)]
+    public string Url { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(2, "Open In New Page", new[] { "Navigation" })]
+    [PropertyHiddenByValue(nameof(OpenUrl), false, true)]
+    public bool OpenUrlInNewPage { get; set; } = true;
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(3, "Target Folder", new[] { "Navigation" })]
     [ProjectFolderPickerEditor]
+    [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
     public string FolderId { get; set; }
 
     [WritableValue]
     [DataMember]
-    [PropertyClassification(2, "Page Name", new[] { "Navigation" })]
+    [PropertyClassification(4, "Page Name", new[] { "Navigation" })]
     [SelectStringEditor("PageNameList", SelectStringEditorType.DropdownList, true)]
     [PropertyHiddenByValue(nameof(FolderId), null, true)]
+    [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
     public string PageName { get; set; }
 
     [WritableValue]
     [DataMember]
-    [PropertyClassification(3, "Open in New Window", new[] { "Navigation" })]
+    [PropertyClassification(5, "Open in New Window", new[] { "Navigation" })]
     [PropertyHiddenByValue(nameof(FolderId), null, true)]
+    [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
     public bool OpenInNewWindow { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(6, "Hide Portal", new[] { "Navigation" })]
+    [PropertyHiddenByValue(nameof(OpenInNewWindow), false, true)]
+    [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
+    public bool HidePortal { get; set; }
 
     [PropertyHidden(true)]
     public string[] PageNameList
@@ -71,13 +103,33 @@ public class NavigationMenuItemDef : IProjectAware
     [WritableValue]
     [DataMember]
     [PropertyClassification(4, "Selection Bus Value", new[] { "Selection Bus" })]
+    [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
     public string SelectionBusValue { get; set; }
+
+    [InfoOrWarningEditor(false, null, true)]
+    [PropertyClassification(5, "Selection Bus Value Info", new[] { "Selection Bus" })]
+    [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
+    public string SelectionBusValueNote
+    {
+        get => "Requires a Selection Bus Name to be configured on the menu configuration.";
+        set { }
+    }
 
     [WritableValue]
     [DataMember]
     [PropertyClassification(5, "Action Flow", new[] { "Action" })]
     [ElementRegistrationPickerEditor(new[] { ElementType.Flow }, "DecisionsFramework.Design.Flow.FolderAwareFlowBehavior", null, false, "Pick Action Flow")]
+    [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
     public string FlowId { get; set; }
+
+    [InfoOrWarningEditor(false, null, true)]
+    [PropertyClassification(6, "Action Flow Info", new[] { "Action" })]
+    [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
+    public string FlowNote
+    {
+        get => "Must be of type User Action Flow (Folder Aware). When Open in New Window is enabled, the flow runs automatically on the new page after it loads.";
+        set { }
+    }
 
     [WritableValue]
     [DataMember]

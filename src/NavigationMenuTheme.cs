@@ -50,6 +50,12 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
     [ORMField]
     private int itemSpacing = 0;
 
+    [ORMField]
+    private string separatorColor;
+
+    [ORMField]
+    private int separatorThickness = 1;
+
     public NavigationMenuTheme()
     {
         controlBackgroundColor = "#1c1e2e";
@@ -160,6 +166,25 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
         set { itemSpacing = value; OnPropertyChanged(nameof(ItemSpacing)); }
     }
 
+    [DataMember]
+    [WritableValue]
+    [PropertyClassification(0, "Color", new[] { "Separator" })]
+    [ColorPickerEditor(true, true)]
+    public string SeparatorColor
+    {
+        get => separatorColor;
+        set { separatorColor = value; OnPropertyChanged(nameof(SeparatorColor)); }
+    }
+
+    [DataMember]
+    [WritableValue]
+    [PropertyClassification(1, "Thickness (px)", new[] { "Separator" })]
+    public int SeparatorThickness
+    {
+        get => separatorThickness;
+        set { separatorThickness = value; OnPropertyChanged(nameof(SeparatorThickness)); }
+    }
+
     public override BaseActionType[] GetActions(AbstractUserContext userContext, EntityActionType[] types)
     {
         var actions = new List<BaseActionType>(base.GetActions(userContext, types));
@@ -186,7 +211,9 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
                     Orientation            = original.Orientation,
                     HorizontalJustify      = original.HorizontalJustify,
                     VerticalAlign          = original.VerticalAlign,
-                    ItemSpacing            = original.ItemSpacing
+                    ItemSpacing            = original.ItemSpacing,
+                    SeparatorColor         = original.SeparatorColor,
+                    SeparatorThickness     = original.SeparatorThickness
                 };
                 new ORM<NavigationMenuTheme>().Store(copy);
             },
@@ -214,6 +241,8 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
                 HorizontalJustify      = imported.HorizontalJustify;
                 VerticalAlign          = imported.VerticalAlign;
                 ItemSpacing            = imported.ItemSpacing;
+                SeparatorColor         = imported.SeparatorColor;
+                SeparatorThickness     = imported.SeparatorThickness;
                 new ORM<NavigationMenuTheme>().Store(this);
             },
             "Import Theme", "Paste JSON here",
@@ -239,7 +268,9 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
             Orientation            = orientation,
             HorizontalJustify      = horizontalJustify,
             VerticalAlign          = verticalAlign,
-            ItemSpacing            = itemSpacing
+            ItemSpacing            = itemSpacing,
+            SeparatorColor         = separatorColor,
+            SeparatorThickness     = separatorThickness
         };
         return JsonSerializer.Serialize(dto, _jsonOpts);
     }
@@ -277,4 +308,10 @@ internal sealed class NavMenuThemeDto
 
     [JsonPropertyName("ItemSpacing")]
     public int ItemSpacing { get; set; }
+
+    [JsonPropertyName("SeparatorColor")]
+    public string SeparatorColor { get; set; }
+
+    [JsonPropertyName("SeparatorThickness")]
+    public int SeparatorThickness { get; set; }
 }

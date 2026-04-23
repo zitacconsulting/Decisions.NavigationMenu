@@ -25,6 +25,18 @@ $DP.Components.Page.NavMenu = (function () {
             _updateActiveItem(opts.instanceId);
         });
         _updateActiveItem(opts.instanceId);
+
+        if (!window._dpNavMenuAutoRunDone) {
+            var autoFlowId = new URLSearchParams(window.location.search).get('autoRunFlowId');
+            if (autoFlowId) {
+                window._dpNavMenuAutoRunDone = true;
+                var storageKey = 'dpNavMenuAutoRun_' + autoFlowId;
+                if (!sessionStorage.getItem(storageKey)) {
+                    sessionStorage.setItem(storageKey, '1');
+                    setTimeout(function () { _runFlow(autoFlowId, null, null); }, 0);
+                }
+            }
+        }
     }
 
     // ── Active item highlighting ─────────────────────────────────────────────
@@ -127,14 +139,14 @@ $DP.Components.Page.NavMenu = (function () {
         var top = opts.topLevelStyle || {};
         var sub = opts.subItemStyle || {};
 
-        var css = _buildScopedCss('#navmenu-holder-' + instanceId, top, sub, opts.itemSpacing || 0, opts.controlBackgroundColor || '');
+        var css = _buildScopedCss('#navmenu-holder-' + instanceId, top, sub, opts.itemSpacing || 0, opts.controlBackgroundColor || '', opts.separatorColor || '', opts.separatorThickness || 1);
         if (!css) return;
 
         var $style = $('<style>').attr('id', id).text(css);
         $('head').append($style);
     }
 
-    function _buildScopedCss(scope, top, sub, itemSpacing, controlBg) {
+    function _buildScopedCss(scope, top, sub, itemSpacing, controlBg, separatorColor, separatorThickness) {
         var rules = '';
 
         if (controlBg) {
@@ -147,6 +159,12 @@ $DP.Components.Page.NavMenu = (function () {
         if (sub && sub.BackgroundColor) {
             rules += scope + ' .dp-navmenu-dropdown{background-color:' + sub.BackgroundColor + ';}';
         }
+
+        var sepColor = separatorColor || 'rgba(128,128,128,0.25)';
+        var sepWidth = (separatorThickness > 0 ? separatorThickness : 1) + 'px';
+        rules += scope + ' > nav.dp-navmenu-horizontal > .dp-navmenu-list > .dp-navmenu-separator{border-left:' + sepWidth + ' solid ' + sepColor + ';}';
+        rules += scope + ' > nav.dp-navmenu-vertical > .dp-navmenu-list > .dp-navmenu-separator{border-top:' + sepWidth + ' solid ' + sepColor + ';}';
+        rules += scope + ' .dp-navmenu-dropdown > .dp-navmenu-separator{border-top:' + sepWidth + ' solid ' + sepColor + ';}';
 
         rules += _itemRules(scope + ' > nav > ul > .dp-navmenu-item > .dp-navmenu-link', top);
         rules += _itemRules(scope + ' .dp-navmenu-dropdown .dp-navmenu-item > .dp-navmenu-link', sub);
@@ -293,8 +311,12 @@ $DP.Components.Page.NavMenu = (function () {
         }
 
         var $ul = $('<ul>').addClass('dp-navmenu-list');
-        (opts.items || []).forEach(function (item) {
+        var topItems = opts.items || [];
+        topItems.forEach(function (item, index) {
             $ul.append(_renderItem(instanceId, item, false));
+            if (item.SeparatorAfter && index < topItems.length - 1) {
+                $ul.append($('<li>').addClass('dp-navmenu-separator'));
+            }
         });
 
         $nav.append($ul);
@@ -313,7 +335,7 @@ $DP.Components.Page.NavMenu = (function () {
         if (hasDropdown) $li.addClass('dp-navmenu-has-dropdown');
 
         var $a = $('<a>').addClass('dp-navmenu-link').attr('href', '#');
-        if (!item.FolderId) $a.addClass('dp-navmenu-inert');
+        if (!item.FolderId && !(item.OpenUrl && item.Url)) $a.addClass('dp-navmenu-inert');
 
         var override = item.StyleOverride;
         if (override) {
@@ -351,8 +373,12 @@ $DP.Components.Page.NavMenu = (function () {
 
         if (hasDropdown) {
             var $dropdown = $('<ul>').addClass('dp-navmenu-dropdown');
-            item.SubItems.forEach(function (sub) {
+            var subItems = item.SubItems;
+            subItems.forEach(function (sub, index) {
                 $dropdown.append(_renderItem(instanceId, sub, true));
+                if (sub.SeparatorAfter && index < subItems.length - 1) {
+                    $dropdown.append($('<li>').addClass('dp-navmenu-separator'));
+                }
             });
             $li.append($dropdown);
 
@@ -420,6 +446,15 @@ $DP.Components.Page.NavMenu = (function () {
         var opts = _instances[instanceId];
         if (opts.isDesignMode) return;
 
+        if (item.OpenUrl && item.Url) {
+            if (item.OpenUrlInNewPage) {
+                window.open(item.Url, '_blank');
+            } else {
+                window.location.href = item.Url;
+            }
+            return;
+        }
+
         var busName = opts.selectionBusName || null;
         if (busName && item.SelectionBusValue !== undefined && item.SelectionBusValue !== null && item.SelectionBusValue !== '') {
             _pendingBusValue = item.SelectionBusValue;
@@ -431,11 +466,7 @@ $DP.Components.Page.NavMenu = (function () {
 
         if (item.FolderId) {
             if (item.OpenInNewWindow) {
-                var url = _buildFolderUrl(item.FolderId, item.PageName);
-                window.open(url, '_blank');
-                if (item.FlowId) {
-                    _runFlow(item.FlowId, item.FolderId, item.PageName);
-                }
+                window.open(_buildFolderUrl(item.FolderId, item.PageName, busName, item.SelectionBusValue, item.FlowId, item.HidePortal), '_blank');
             } else {
                 if (item.FlowId) {
                     $(document).one('decisionsnavigationcomplete', function () {
@@ -459,9 +490,14 @@ $DP.Components.Page.NavMenu = (function () {
 
     // ── Navigation helper ────────────────────────────────────────────────────
 
-    function _buildFolderUrl(folderId, pageName) {
-        var base = (typeof virtualPath !== 'undefined' ? virtualPath : '') + '/';
-        return base + 'Primary/' + encodeURIComponent(folderId) + (pageName ? '/' + encodeURIComponent(pageName) : '');
+    function _buildFolderUrl(folderId, pageName, busName, busValue, flowId, hidePortal) {
+        var params = new URLSearchParams();
+        params.set('FolderId', folderId);
+        if (pageName) params.set('pageName', pageName);
+        if (busName && busValue != null && busValue !== '') params.set(busName, busValue);
+        if (flowId) params.set('autoRunFlowId', flowId);
+        if (hidePortal) params.set('chrome', 'off');
+        return window.location.pathname + '?' + params.toString();
     }
 
     // ── Public surface ───────────────────────────────────────────────────────

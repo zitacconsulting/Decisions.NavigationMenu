@@ -11,7 +11,9 @@
     var styles       = Model.TypedComponent.GetStyles();
     var topStyleJson = JsonSerializer.Serialize(styles.topLevel);
     var subStyleJson = JsonSerializer.Serialize(styles.subItem);
-    var controlBg    = styles.controlBg ?? string.Empty;
+    var controlBg         = styles.controlBg ?? string.Empty;
+    var separatorColor    = styles.separatorColor ?? string.Empty;
+    var separatorThickness = styles.separatorThickness;
     var layout       = Model.TypedComponent.GetLayout();
     var orientation  = layout.orientation.ToString();
     var hJustify     = layout.horizontalJustify.ToString();
@@ -39,6 +41,8 @@
                 verticalAlign: '@vAlign',
                 itemSpacing: @itemSpacing,
                 controlBackgroundColor: '@controlBg',
+                separatorColor: '@separatorColor',
+                separatorThickness: @separatorThickness,
                 selectionBusName: '@selectionBusName',
                 topLevelStyle: @Html.Raw(topStyleJson),
                 subItemStyle: @Html.Raw(subStyleJson),

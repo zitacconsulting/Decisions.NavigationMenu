@@ -60,25 +60,30 @@ public class NavigationMenuPart : SilverPart
             .Select(item => new NavigationMenuItemDef
             {
                 Label             = item.Label,
+                OpenUrl           = item.OpenUrl,
+                Url               = item.Url,
+                OpenUrlInNewPage  = item.OpenUrlInNewPage,
                 FolderId          = item.FolderId,
                 PageName          = item.PageName,
                 OpenInNewWindow   = item.OpenInNewWindow,
+                HidePortal        = item.HidePortal,
                 SelectionBusValue = item.SelectionBusValue,
                 FlowId            = item.FlowId,
                 Icon              = item.Icon,
                 IconPosition      = item.IconPosition,
+                SeparatorAfter    = item.SeparatorAfter,
                 SubItems          = FilterByAccess(item.SubItems, account)
             })
             .ToArray();
     }
 
-    public (NavMenuItemStyle topLevel, NavMenuItemStyle subItem, string controlBg) GetStyles()
+    public (NavMenuItemStyle topLevel, NavMenuItemStyle subItem, string controlBg, string separatorColor, int separatorThickness) GetStyles()
     {
         var config = FetchConfig();
         if (config == null || string.IsNullOrEmpty(config.ThemeId))
-            return (null, null, null);
+            return (null, null, null, null, 1);
         var theme = new ORM<NavigationMenuTheme>().Fetch(config.ThemeId);
-        return (theme?.TopLevelStyle, theme?.SubItemStyle, theme?.ControlBackgroundColor);
+        return (theme?.TopLevelStyle, theme?.SubItemStyle, theme?.ControlBackgroundColor, theme?.SeparatorColor, theme?.SeparatorThickness ?? 1);
     }
 
     private static bool HasFlowAccess(string flowId, Account account)
