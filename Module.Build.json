@@ -1,0 +1,24 @@
+{
+  "Resources": {
+    "CoreServicesDlls": [
+      "./obj-main/Decisions.NavigationMenu.dll"
+    ],
+    "MvcDlls": [
+      "./obj-views/Decisions.NavigationMenu.Views.dll"
+    ],
+    "MvcScripts": [
+      "./MvcScripts/navmenu.js"
+    ],
+    "MvcStyles": ["./MvcStyles/navmenu.css"],
+    "ReferenceDlls": [],
+    "CliDlls": "",
+    "WebPages": "",
+    "InstallScript": "",
+    "SqlScripts": "",
+    "MsSqlScript": "",
+    "CustomImages": ["./zitac.png"]
+  },
+  "Version": "1.0.0",
+  "ImagePath": "./zitac.png",
+  "Description": "Navigation Menu page control with shared per-project configuration, dropdown submenus, folder/page navigation, and selection bus integration."
+}

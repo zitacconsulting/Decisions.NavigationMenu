@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <RootNamespace>Decisions.NavigationMenu.Views</RootNamespace>
+    <AssemblyName>Decisions.NavigationMenu.Views</AssemblyName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
+  <!-- Only compile Razor views — all C# lives in the main project -->
+  <ItemGroup>
+    <Compile Remove="**/*.cs" />
+    <Content Remove="obj-main/**" />
+    <Content Remove="obj-views/**" />
+    <None Remove="obj-main/**" />
+    <None Remove="obj-views/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="DecisionsSDK" Version="9.21.0" />
+<ProjectReference Include="Decisions.NavigationMenu.csproj" />
+  </ItemGroup>
+</Project>

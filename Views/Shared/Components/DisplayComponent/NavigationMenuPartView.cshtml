@@ -1,0 +1,49 @@
+@using Decisions.NavigationMenu
+@using Decisions.Web.Core.Overrides
+@using Decisions.Web.Mvc.Host.Helpers
+@using System.Text.Json
+@model TypedSilverlightComponentModel<NavigationMenuPart>
+@{
+    base.Layout = "_ModuleViewStart";
+    string instanceId = Helpers.GenerateDomElementId();
+    var items        = Model.TypedComponent.GetItems();
+    var itemsJson    = JsonSerializer.Serialize(items);
+    var styles       = Model.TypedComponent.GetStyles();
+    var topStyleJson = JsonSerializer.Serialize(styles.topLevel);
+    var subStyleJson = JsonSerializer.Serialize(styles.subItem);
+    var controlBg    = styles.controlBg ?? string.Empty;
+    var layout       = Model.TypedComponent.GetLayout();
+    var orientation  = layout.orientation.ToString();
+    var hJustify     = layout.horizontalJustify.ToString();
+    var vAlign       = layout.verticalAlign.ToString();
+    var itemSpacing  = layout.itemSpacing;
+    var selectionBusName  = layout.selectionBusName ?? string.Empty;
+
+    ViewContext.HttpContext.Items.TryGetValue("ScriptNonce", out object nonceObj);
+    var nonce = nonceObj?.ToString() ?? string.Empty;
+}
+
+<div id="navmenu-holder-@instanceId" class="full-size dp-navmenu-holder"></div>
+
+<script type="text/javascript" nonce="@nonce">
+    $(document).ready(function () {
+        $.when(
+            $DP.ScriptLoader.LoadScript(virtualPath + '/Scripts/ModuleScripts/navmenu.js')
+        ).then(function () {
+            $DP.Components.Page.NavMenu.initialize({
+                instanceId: '@instanceId',
+                holder: $('#navmenu-holder-@instanceId'),
+                items: @Html.Raw(itemsJson),
+                orientation: '@orientation',
+                horizontalJustify: '@hJustify',
+                verticalAlign: '@vAlign',
+                itemSpacing: @itemSpacing,
+                controlBackgroundColor: '@controlBg',
+                selectionBusName: '@selectionBusName',
+                topLevelStyle: @Html.Raw(topStyleJson),
+                subItemStyle: @Html.Raw(subStyleJson),
+                isDesignMode: @Html.Raw(Model.IsInDesignMode.ToString().ToLower())
+            });
+        });
+    });
+</script>

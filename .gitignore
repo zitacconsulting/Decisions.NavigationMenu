@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+obj-main/
+obj-views/
+
+
+# .NET / Rider / Visual Studio
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.DotSettings.user
+.DS_Store
