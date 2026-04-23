@@ -27,7 +27,9 @@ A custom page component module for the [Decisions](https://decisions.com) platfo
 3. Navigate to **System > Administration > Features**
 4. Click **Install Module**
 5. Upload the `.zip` file
-6. Restart the Decisions service if prompted
+6. Restart the Decisions service
+
+> **Note:** A service restart is required for the module to load correctly.
 
 ### Option 2: Build from Source
 See the [Building from Source](#building-from-source) section below.
