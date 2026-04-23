@@ -22,7 +22,7 @@ A custom page component module for the [Decisions](https://decisions.com) platfo
 ## Installation
 
 ### Option 1: Install Pre-built Module
-1. Download the compiled module (`.zip` file)
+1. Download the compiled module — this is the `Decisions.NavigationMenu.zip` file from the [Releases](../../releases) page, **not** the "Download ZIP" button on the repository page (that downloads the source code, not the module)
 2. Log into the Decisions Portal
 3. Navigate to **System > Administration > Features**
 4. Click **Install Module**
@@ -107,11 +107,11 @@ chmod +x build_module.sh
 #### Manual Build:
 ```bash
 # 1. Publish the main project
-dotnet publish ./Decisions.NavigationMenu.csproj --self-contained false --output ./obj-main -c Release
+dotnet publish ./src/Decisions.NavigationMenu.csproj --self-contained false --output ./obj-main -c Release
 
 # 2. Publish the Razor views project
-dotnet restore ./Decisions.NavigationMenu.Views.csproj
-dotnet publish ./Decisions.NavigationMenu.Views.csproj --self-contained false --output ./obj-views -c Release --no-restore
+dotnet restore ./src/Decisions.NavigationMenu.Views.csproj
+dotnet publish ./src/Decisions.NavigationMenu.Views.csproj --self-contained false --output ./obj-views -c Release --no-restore
 
 # 3. Create the module package
 dotnet msbuild build.proj -t:build_module

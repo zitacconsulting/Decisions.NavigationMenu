@@ -10,11 +10,11 @@ NC='\033[0m'
 echo -e "${GREEN}Building Decisions.NavigationMenu Module${NC}"
 
 echo -e "${YELLOW}Compiling main project...${NC}"
-dotnet publish ./Decisions.NavigationMenu.csproj --self-contained false --output ./obj-main -c Release
+dotnet publish ./src/Decisions.NavigationMenu.csproj --self-contained false --output ./obj-main -c Release
 
 echo -e "${YELLOW}Compiling Razor views project...${NC}"
-dotnet restore ./Decisions.NavigationMenu.Views.csproj
-dotnet publish ./Decisions.NavigationMenu.Views.csproj --self-contained false --output ./obj-views -c Release --no-restore
+dotnet restore ./src/Decisions.NavigationMenu.Views.csproj
+dotnet publish ./src/Decisions.NavigationMenu.Views.csproj --self-contained false --output ./obj-views -c Release --no-restore
 
 echo -e "${YELLOW}Creating Decisions module package...${NC}"
 dotnet msbuild build.proj -t:build_module
