@@ -30,7 +30,7 @@
 <script type="text/javascript" nonce="@nonce">
     $(document).ready(function () {
         $.when(
-            $DP.ScriptLoader.LoadScript(virtualPath + '/Scripts/ModuleScripts/navmenu.js')
+            $DP.ScriptLoader.LoadScript(virtualPath + '/Scripts/ModuleScripts/navmenu.js?v=@ModuleVersion.Current')
         ).then(function () {
             $DP.Components.Page.NavMenu.initialize({
                 instanceId: '@instanceId',

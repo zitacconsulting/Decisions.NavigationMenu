@@ -9,6 +9,17 @@ NC='\033[0m'
 
 echo -e "${GREEN}Building Decisions.NavigationMenu Module${NC}"
 
+# ── Version bump ─────────────────────────────────────────────────────────────
+CURRENT_VERSION=$(grep 'Current = "' src/ModuleVersion.cs | sed 's/.*Current = "\(.*\)".*/\1/')
+echo -e "${CYAN}Current version: ${CURRENT_VERSION}${NC}"
+read -p "New version (leave blank to keep ${CURRENT_VERSION}): " NEW_VERSION
+
+if [ -n "$NEW_VERSION" ]; then
+    sed -i "s/Current = \".*\"/Current = \"${NEW_VERSION}\"/" src/ModuleVersion.cs
+    sed -i "s/\"Version\": \".*\"/\"Version\": \"${NEW_VERSION}\"/" Module.Build.json
+    echo -e "${GREEN}Version bumped to ${NEW_VERSION}${NC}"
+fi
+
 echo -e "${YELLOW}Compiling main project...${NC}"
 dotnet publish ./src/Decisions.NavigationMenu.csproj --self-contained false --output ./obj-main -c Release
 

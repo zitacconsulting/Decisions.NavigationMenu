@@ -1,4 +1,5 @@
 using System;
+using DecisionsFramework;
 using DecisionsFramework.Data.ORMapper;
 using DecisionsFramework.Design.Form;
 using DecisionsFramework.Design.Projects.Dependency;
@@ -12,10 +13,13 @@ namespace Decisions.NavigationMenu;
 
 public class NavigationMenuModule : IInitializable, IModuleDependencyInitializer
 {
+    private static readonly Log log = new Log("NavigationMenu");
+
     public string ModuleName => "Decisions.NavigationMenu";
 
     public void Initialize()
     {
+        log.Info($"Navigation Menu module version {ModuleVersion.Current} loaded.");
         RegisterToolboxElement();
         MigrateNavMenuFolders();
     }

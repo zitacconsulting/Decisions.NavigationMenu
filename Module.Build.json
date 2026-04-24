@@ -18,7 +18,7 @@
     "MsSqlScript": "",
     "CustomImages": ["./zitac.png"]
   },
-  "Version": "1.0.0",
+  "Version": "1.0.2",
   "ImagePath": "./zitac.png",
   "Description": "Navigation Menu page control with shared per-project configuration, dropdown submenus, folder/page navigation, and selection bus integration."
 }

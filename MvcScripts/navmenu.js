@@ -21,9 +21,6 @@ $DP.Components.Page.NavMenu = (function () {
         $(document).on('navigationParameterChanged' + ns, function () {
             _updateActiveItem(opts.instanceId);
         });
-        $(document).on('decisionsnavigationcomplete' + ns, function () {
-            _updateActiveItem(opts.instanceId);
-        });
         _updateActiveItem(opts.instanceId);
 
         if (!window._dpNavMenuAutoRunDone) {
@@ -469,9 +466,28 @@ $DP.Components.Page.NavMenu = (function () {
                 window.open(_buildFolderUrl(item.FolderId, item.PageName, busName, item.SelectionBusValue, item.FlowId, item.HidePortal), '_blank');
             } else {
                 if (item.FlowId) {
-                    $(document).one('decisionsnavigationcomplete', function () {
+                    var loc = _getCurrentLocation();
+                    var alreadyThere = loc && loc.folderId === item.FolderId &&
+                        (!item.PageName || !loc.pageName || loc.pageName === item.PageName);
+                    if (alreadyThere) {
                         _runFlow(item.FlowId, item.FolderId, item.PageName);
-                    });
+                    } else {
+                        var targetFolderId = item.FolderId;
+                        var targetFlowId   = item.FlowId;
+                        var targetPageName = item.PageName;
+                        var debounceTimer  = null;
+                        var onParamChanged = function () {
+                            var current = _getCurrentLocation();
+                            if (current && current.folderId === targetFolderId) {
+                                clearTimeout(debounceTimer);
+                                debounceTimer = setTimeout(function () {
+                                    $(document).off('navigationParameterChanged', onParamChanged);
+                                    _runFlow(targetFlowId, targetFolderId, targetPageName);
+                                }, 150);
+                            }
+                        };
+                        $(document).on('navigationParameterChanged', onParamChanged);
+                    }
                 }
                 Decisions.Navigation.navigateToFolder(item.FolderId, item.PageName || null);
             }
