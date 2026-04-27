@@ -80,11 +80,15 @@ public class NavigationMenuPart : SilverPart
     public (NavMenuItemStyle topLevel, NavMenuItemStyle subItem, string controlBg, string separatorColor, int separatorThickness) GetStyles()
     {
         var config = FetchConfig();
-        if (config == null || string.IsNullOrEmpty(config.ThemeId))
-            return (null, null, null, null, 1);
-        var theme = new ORM<NavigationMenuTheme>().Fetch(config.ThemeId);
+        if (config == null) return (null, null, null, null, 1);
+        var themeId = GetEffectiveThemeId(config);
+        if (string.IsNullOrEmpty(themeId)) return (null, null, null, null, 1);
+        var theme = new ORM<NavigationMenuTheme>().Fetch(themeId);
         return (theme?.TopLevelStyle, theme?.SubItemStyle, theme?.ControlBackgroundColor, theme?.SeparatorColor, theme?.SeparatorThickness ?? 1);
     }
+
+    private static string GetEffectiveThemeId(NavigationMenuConfig config)
+        => config.UseSystemTheme ? config.SystemThemeId : config.ThemeId;
 
     private static bool HasFlowAccess(string flowId, Account account)
     {
@@ -100,8 +104,9 @@ public class NavigationMenuPart : SilverPart
             return (NavMenuOrientation.Horizontal, NavMenuHorizontalJustify.Start, NavMenuVerticalAlign.Top, 0, true, null);
 
         NavigationMenuTheme theme = null;
-        if (!string.IsNullOrEmpty(config.ThemeId))
-            theme = new ORM<NavigationMenuTheme>().Fetch(config.ThemeId);
+        var themeId = GetEffectiveThemeId(config);
+        if (!string.IsNullOrEmpty(themeId))
+            theme = new ORM<NavigationMenuTheme>().Fetch(themeId);
 
         return (
             theme?.Orientation       ?? NavMenuOrientation.Horizontal,

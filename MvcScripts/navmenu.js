@@ -1,28 +1,118 @@
+// $DP is the global Decisions namespace. These lines ensure the namespace objects exist
+// before any code tries to attach properties to them.
 var $DP = $DP || {};
 $DP.Components = $DP.Components || {};
 $DP.Components.Page = $DP.Components.Page || {};
 
+// ── Platform bug workaround: color picker does not pre-select the current color ─────────
+//
+// When a user edits a color property in the React property grid and then re-opens the
+// color picker to change it again, the previously selected color should be pre-selected
+// in the picker. However, the platform passes the color as a plain hex string (e.g.
+// "#ff0000"), while ColorPicker internally expects a DesignerColor object with a
+// Type === SolidColor (0) property to know which tab to activate on open.
+//
+// Because a raw string never satisfies that condition, the picker always opened showing
+// no pre-selected color, forcing the user to re-enter it from scratch.
+//
+// Fix: we replace the platform's ColorPicker class with a subclass that intercepts the
+// constructor, detects when pickedColor is a plain string, and converts it to a proper
+// DesignerColor via RGBColor.toDesignerColor() before passing it to the original class.
+//
+// We use "class extends" (ES6 class syntax) rather than the older prototype-delegation
+// pattern because ColorPicker is compiled from TypeScript as a native ES6 class.
+// ES6 class constructors cannot be called without "new" — the old pattern of doing
+// Original.call(this, options) would throw "Class constructors cannot be invoked
+// without 'new'" at runtime.
+//
+// The guard at the top skips the patch if the platform classes are not yet loaded,
+// which avoids errors if the script load order ever changes.
+(function () {
+    if (typeof $DP.ColorDialogEditor === 'undefined' ||
+        typeof $DP.ColorDialogEditor.ColorPicker !== 'function' ||
+        typeof $DP.ColorDialogEditor.RGBColor !== 'function') {
+        return;
+    }
+    var Original = $DP.ColorDialogEditor.ColorPicker;
+    var PatchedColorPicker = class extends Original {
+        constructor(options) {
+            if (options && typeof options.pickedColor === 'string' && options.pickedColor) {
+                options.pickedColor = new $DP.ColorDialogEditor.RGBColor(options.pickedColor).toDesignerColor();
+            }
+            super(options);
+        }
+    };
+    $DP.ColorDialogEditor.ColorPicker = PatchedColorPicker;
+}());
+
+// ── NavMenu component ────────────────────────────────────────────────────────────────────
+//
+// This is a self-contained IIFE (Immediately Invoked Function Expression). The IIFE
+// pattern creates a private scope so internal helper functions and variables are not
+// accessible from outside. Only the object returned at the bottom (initialize,
+// _updateActiveItem) becomes part of the public API attached to $DP.Components.Page.NavMenu.
+//
+// The component is initialised once per control instance on a page. Multiple NavMenu
+// controls can coexist on the same page — each gets its own entry in _instances keyed
+// by instanceId.
 $DP.Components.Page.NavMenu = (function () {
     'use strict';
 
+    // Map of instanceId → options for every NavMenu control currently on the page.
     var _instances = {};
-    var _pendingBusValue = null; // bus value from last clicked item — survives navigation parameter reset
+
+    // Stores the SelectionBusValue of the last clicked item so it survives a
+    // "navigationParameterChanged" event that resets the URL parameters.
+    // Without this, clicking an item, navigating, and then coming back would lose
+    // which bus value was active.
+    var _pendingBusValue = null;
 
     // ── Public API ──────────────────────────────────────────────────────────
 
+    /**
+     * Called once by the Decisions form control framework when the NavMenu control is
+     * placed on a page. Sets up the DOM, wires event listeners, and handles auto-run.
+     *
+     * @param {object} opts - Configuration object passed from the C# control renderer.
+     *   Key properties:
+     *   - instanceId {string}     Unique ID for this control instance on the page.
+     *   - holder {jQuery}         The jQuery-wrapped container element for this control.
+     *   - items {Array}           The nav items to render (recursive, supports SubItems).
+     *   - isDesignMode {boolean}  True when the user is editing the page in the designer.
+     *                             Interactions are disabled in design mode.
+     *   - selectionBusName {string}  Name of the Decisions navigation parameter ("bus")
+     *                             used to communicate the selected item to other controls.
+     *   - orientation {string}    'Horizontal' or 'Vertical'.
+     *   - topLevelStyle / subItemStyle {object}  Visual style overrides from the config.
+     */
     function initialize(opts) {
         _instances[opts.instanceId] = opts;
         _injectStyles(opts.instanceId);
         _render(opts.instanceId);
 
+        // In design mode we render the control but do not attach click handlers or
+        // listen for navigation events — the user is editing, not using, the page.
         if (opts.isDesignMode) return;
 
+        // "navigationParameterChanged" is a Decisions platform event fired whenever the
+        // URL navigation parameters change (e.g. FolderId, pageName, or any bus value).
+        // We namespace the event with the instanceId so we can cleanly remove it later
+        // without accidentally removing listeners from other NavMenu instances.
         var ns = '.navmenu-' + opts.instanceId;
         $(document).on('navigationParameterChanged' + ns, function () {
             _updateActiveItem(opts.instanceId);
         });
         _updateActiveItem(opts.instanceId);
 
+        // Auto-run: if the page URL contains ?autoRunFlowId=<id>, run that flow once
+        // on page load. This allows menu items to trigger a flow automatically when
+        // navigating to a folder from a new-window link.
+        //
+        // _dpNavMenuAutoRunDone prevents multiple NavMenu instances on the same page
+        // from each triggering the same flow.
+        //
+        // sessionStorage prevents the flow from running again if the user refreshes the
+        // page while still on the same flow URL (browser back/forward etc.).
         if (!window._dpNavMenuAutoRunDone) {
             var autoFlowId = new URLSearchParams(window.location.search).get('autoRunFlowId');
             if (autoFlowId) {
@@ -30,6 +120,8 @@ $DP.Components.Page.NavMenu = (function () {
                 var storageKey = 'dpNavMenuAutoRun_' + autoFlowId;
                 if (!sessionStorage.getItem(storageKey)) {
                     sessionStorage.setItem(storageKey, '1');
+                    // setTimeout(0) defers execution until after the page has fully
+                    // initialised all controls, avoiding race conditions.
                     setTimeout(function () { _runFlow(autoFlowId, null, null); }, 0);
                 }
             }
@@ -37,15 +129,30 @@ $DP.Components.Page.NavMenu = (function () {
     }
 
     // ── Active item highlighting ─────────────────────────────────────────────
+    //
+    // The "active" item is the menu entry that corresponds to the page the user is
+    // currently on. We highlight it (and its top-level ancestor if it is nested) using
+    // the CSS class dp-navmenu-active, which is styled in navmenu.css.
 
+    /**
+     * Reads the current folder and page from the URL query string.
+     * Decisions navigation always uses FolderId (and optionally pageName) in the URL.
+     * Returns null when we are not inside a Decisions folder page.
+     */
     function _getCurrentLocation() {
         var params = new URLSearchParams(window.location.search);
+        // Accept both capitalisation variants — Decisions is inconsistent across versions.
         var folderId = params.get('FolderId') || params.get('folderId');
         var pageName = params.get('pageName') || params.get('PageName');
         if (folderId) return { folderId: folderId, pageName: pageName };
         return null;
     }
 
+    /**
+     * Writes the current bus value back into the URL using history.replaceState so that
+     * sharing or bookmarking the URL preserves the selected bus value without adding a
+     * new browser history entry (replaceState vs pushState).
+     */
     function _syncBusToUrl(busName, busValue) {
         if (!busName) return;
         var params = new URLSearchParams(window.location.search);
@@ -57,6 +164,15 @@ $DP.Components.Page.NavMenu = (function () {
         history.replaceState(null, '', window.location.pathname + '?' + params.toString());
     }
 
+    /**
+     * Recalculates which menu item matches the current page and updates the
+     * dp-navmenu-active CSS class accordingly.
+     *
+     * Bus values: a "selection bus" is a Decisions navigation parameter used to pass
+     * a value between controls on the same page (similar to a query string variable that
+     * updates without a full page reload). When a NavMenu item has a SelectionBusValue,
+     * clicking it publishes that value to the bus, and other controls react to it.
+     */
     function _updateActiveItem(instanceId) {
         var opts = _instances[instanceId];
         if (!opts) return;
@@ -65,6 +181,12 @@ $DP.Components.Page.NavMenu = (function () {
 
         var loc = _getCurrentLocation();
         var busName = opts.selectionBusName || null;
+
+        // Read the current bus value from three sources in priority order:
+        // 1. _pendingBusValue — set synchronously when the user clicks an item,
+        //    before the navigation event has fired and updated the URL.
+        // 2. The live navigation parameters object maintained by the Decisions platform.
+        // 3. The URL query string (fallback for page load / direct link scenarios).
         var liveParams = ($DP.Navigation && $DP.Navigation.Helper && $DP.Navigation.Helper.navigationParameters) || {};
         var busValue = _pendingBusValue !== null ? _pendingBusValue
                      : (busName && liveParams[busName] != null) ? String(liveParams[busName])
@@ -77,12 +199,22 @@ $DP.Components.Page.NavMenu = (function () {
         if (!$match) return;
 
         $match.addClass('dp-navmenu-active');
+
+        // If the matched item is nested inside a dropdown, also highlight the top-level
+        // parent so users can see which section is active even when the dropdown is closed.
         var $top = _getTopLevelParent($match, opts.holder);
         if ($top && $top[0] !== $match[0]) {
             $top.addClass('dp-navmenu-active');
         }
     }
 
+    /**
+     * Finds the best-matching menu item for the current location and bus value.
+     *
+     * Scoring: a folder ID match scores 1. If the item also matches the bus value,
+     * the score becomes 2. This means that when multiple items point to the same folder
+     * (e.g. one with a bus value and one without), the more specific match wins.
+     */
     function _findBestMatch($holder, loc, busName, busValue) {
         var $best = null;
         var bestScore = -1;
@@ -96,7 +228,6 @@ $DP.Components.Page.NavMenu = (function () {
             if (!folderId || !loc || folderId !== loc.folderId) return;
             if (pageName && loc.pageName && pageName !== loc.pageName) return;
 
-            // Score: +1 for folder match (always here), +1 for bus match
             var score = 1;
             if (busName && itemBusValue !== null && busValue !== null &&
                 String(busValue) === String(itemBusValue)) {
@@ -112,10 +243,13 @@ $DP.Components.Page.NavMenu = (function () {
         return $best;
     }
 
+    /**
+     * Walks up the DOM from a nested menu item to find the top-level list item.
+     * Used to highlight the parent item when a child item is active.
+     */
     function _getTopLevelParent($li, $holder) {
         var $topList = $holder.find('> nav > .dp-navmenu-list');
         if ($li.parent().is($topList)) return $li;
-        // Walk up through dropdown ancestors
         var $current = $li;
         while (true) {
             var $parentLi = $current.closest('.dp-navmenu-dropdown').closest('.dp-navmenu-item');
@@ -127,10 +261,16 @@ $DP.Components.Page.NavMenu = (function () {
     }
 
     // ── Style injection ──────────────────────────────────────────────────────
+    //
+    // Visual styles (colours, fonts, spacing) come from the NavMenu config object.
+    // Rather than inline-styling every element, we generate a scoped <style> block
+    // and inject it into <head> once per instance. Scoping by instanceId means
+    // multiple NavMenu controls on the same page do not interfere with each other.
 
     function _injectStyles(instanceId) {
         var opts = _instances[instanceId];
         var id = 'dp-navmenu-style-' + instanceId;
+        // Guard: only inject once even if initialize is somehow called twice.
         if (document.getElementById(id)) return;
 
         var top = opts.topLevelStyle || {};
@@ -240,26 +380,35 @@ $DP.Components.Page.NavMenu = (function () {
 
     // ── Icon helper ──────────────────────────────────────────────────────────
 
+    /**
+     * Converts an ImageInfo object (as serialised by the C# platform) into an <img>
+     * element. ImageInfo supports four storage types — the numeric values here match
+     * the ImageInfoType enum in DecisionsFramework.ServiceLayer.Services.Image.
+     *
+     * virtualPath is a global string injected by the platform that contains the
+     * application root path (e.g. "/Primary"). We prepend it to relative URLs so the
+     * component works regardless of which virtual directory Decisions is hosted under.
+     */
     function _buildIconElement(icon) {
         if (!icon) return null;
         var base = (typeof virtualPath !== 'undefined' ? virtualPath : '');
         var url = null;
 
         switch (icon.ImageType) {
-            case 1: // Url
+            case 1: // Url — a plain HTTP/S address provided by the user
                 url = icon.ImageUrl;
                 break;
-            case 2: // StoredImage
+            case 2: // StoredImage — an SVG from the Decisions image library (most common)
                 if (icon.ImageId) {
                     url = base + '/Handlers/SvgImage.ashx?svgFile=' + encodeURIComponent(icon.ImageId);
                 }
                 break;
-            case 3: // Document
+            case 3: // Document — an image stored as a Decisions Document entity
                 if (icon.DocumentId) {
                     url = base + '/Handlers/SvgImage.ashx?documentId=' + encodeURIComponent(icon.DocumentId);
                 }
                 break;
-            case 0: // RawData / File
+            case 0: // RawData — a file uploaded directly via the image picker
                 if (icon.ImageFileReferenceId) {
                     url = base + '/Primary/API/FileReferenceService/JS/DownloadFile?id=' + encodeURIComponent(icon.ImageFileReferenceId) + '&fileName=' + encodeURIComponent(icon.ImageName || '');
                 }
@@ -412,6 +561,16 @@ $DP.Components.Page.NavMenu = (function () {
 
     // ── Flow runner ──────────────────────────────────────────────────────────
 
+    /**
+     * Launches a Decisions flow and displays its first form step in a modal dialog.
+     *
+     * Decisions flows are server-side processes. Running one returns HTML for the
+     * first interactive form step. The platform's ActionExecutor handles displaying
+     * that HTML in a dialog and managing subsequent steps.
+     *
+     * ignoreMissingInputs: true allows the flow to start even if it expects input
+     * data that we are not supplying — the flow itself handles missing inputs.
+     */
     function _runFlow(flowId, folderId, pageName) {
         var d = $.Deferred();
         var instanceId = Decisions.GenerateNewGUID();
@@ -439,10 +598,21 @@ $DP.Components.Page.NavMenu = (function () {
 
     // ── Click handler ────────────────────────────────────────────────────────
 
+    /**
+     * Handles a click on any menu item. Supports four item types:
+     *   1. External URL  — opens in same tab or new tab.
+     *   2. Folder + Flow — navigates to the folder, then runs a flow once there.
+     *   3. Folder only   — navigates to the folder (optionally in a new window).
+     *   4. Flow only     — runs a flow in a dialog without changing the folder.
+     *
+     * Bus publishing happens before navigation so that other controls on the page
+     * receive the new bus value at the same time as the folder changes.
+     */
     function _onItemClick(instanceId, item, $li) {
         var opts = _instances[instanceId];
         if (opts.isDesignMode) return;
 
+        // External URL items: bypass all Decisions navigation logic.
         if (item.OpenUrl && item.Url) {
             if (item.OpenUrlInNewPage) {
                 window.open(item.Url, '_blank');
@@ -452,6 +622,10 @@ $DP.Components.Page.NavMenu = (function () {
             return;
         }
 
+        // Publish the item's SelectionBusValue to the navigation parameter bus so
+        // other controls on the page (e.g. data grids) can react to the selection.
+        // _pendingBusValue is stored here because _updateActiveItem may fire before
+        // the URL has been updated with the new bus value.
         var busName = opts.selectionBusName || null;
         if (busName && item.SelectionBusValue !== undefined && item.SelectionBusValue !== null && item.SelectionBusValue !== '') {
             _pendingBusValue = item.SelectionBusValue;
@@ -466,12 +640,19 @@ $DP.Components.Page.NavMenu = (function () {
                 window.open(_buildFolderUrl(item.FolderId, item.PageName, busName, item.SelectionBusValue, item.FlowId, item.HidePortal), '_blank');
             } else {
                 if (item.FlowId) {
+                    // When a flow must run after navigating to a folder, we first check if
+                    // we are already on that folder to avoid a redundant navigation.
                     var loc = _getCurrentLocation();
                     var alreadyThere = loc && loc.folderId === item.FolderId &&
                         (!item.PageName || !loc.pageName || loc.pageName === item.PageName);
                     if (alreadyThere) {
                         _runFlow(item.FlowId, item.FolderId, item.PageName);
                     } else {
+                        // We need to navigate first, then run the flow. We listen for
+                        // navigationParameterChanged, which fires once the Decisions SPA
+                        // has finished navigating. A debounce (150 ms) prevents the flow
+                        // from running multiple times if the event fires more than once
+                        // during the navigation transition.
                         var targetFolderId = item.FolderId;
                         var targetFlowId   = item.FlowId;
                         var targetPageName = item.PageName;
@@ -498,6 +679,12 @@ $DP.Components.Page.NavMenu = (function () {
 
     // ── Selection bus helpers ────────────────────────────────────────────────
 
+    /**
+     * Publishes a value to a named Decisions navigation parameter (the "bus").
+     * UpdateNavigationParameters broadcasts the change to all controls on the page
+     * that listen for navigationParameterChanged, so they can react in real time
+     * without a full page reload.
+     */
     function _publishToBus(busName, value) {
         var params = {};
         params[busName] = value;
@@ -506,17 +693,30 @@ $DP.Components.Page.NavMenu = (function () {
 
     // ── Navigation helper ────────────────────────────────────────────────────
 
+    /**
+     * Builds a full URL for navigating to a folder, used when opening items in a
+     * new browser window. Includes the bus value and flow ID as query parameters so
+     * the target page starts in the right state.
+     *
+     * chrome=off hides the Decisions portal chrome (header, sidebar) so the page
+     * renders as a standalone view — useful for embedding in iframes or kiosk displays.
+     */
     function _buildFolderUrl(folderId, pageName, busName, busValue, flowId, hidePortal) {
         var params = new URLSearchParams();
         params.set('FolderId', folderId);
         if (pageName) params.set('pageName', pageName);
         if (busName && busValue != null && busValue !== '') params.set(busName, busValue);
+        // autoRunFlowId is picked up by initialize() on the target page to trigger
+        // the flow automatically after the page loads (see the auto-run block above).
         if (flowId) params.set('autoRunFlowId', flowId);
         if (hidePortal) params.set('chrome', 'off');
         return window.location.pathname + '?' + params.toString();
     }
 
     // ── Public surface ───────────────────────────────────────────────────────
+    // Only expose what the platform needs to call from outside this module.
+    // _updateActiveItem is exposed so the platform can force a highlight refresh
+    // if needed; all other functions remain private.
 
     return {
         initialize: initialize,

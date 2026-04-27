@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using DecisionsFramework;
 using DecisionsFramework.Data.ORMapper;
 using DecisionsFramework.Design.Form;
@@ -21,7 +22,7 @@ public class NavigationMenuModule : IInitializable, IModuleDependencyInitializer
     {
         log.Info($"Navigation Menu module version {ModuleVersion.Current} loaded.");
         RegisterToolboxElement();
-        MigrateNavMenuFolders();
+        EnsureBuiltInThemes();
     }
 
     private void RegisterToolboxElement()
@@ -99,8 +100,6 @@ public class NavigationMenuModule : IInitializable, IModuleDependencyInitializer
         FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
             ctx, rootFolderId, themesFolderId,
             "Themes", typeof(NavMenuThemeProjectFolderBehavior).FullName);
-
-        EnsureProjectDefaultTheme(themesFolderId);
     }
 
     public void OnDependencyRemoved(string projectId)
@@ -118,58 +117,136 @@ public class NavigationMenuModule : IInitializable, IModuleDependencyInitializer
             FolderService.Instance.DeleteFolder(new SystemUserContext(), rootFolderId, preserveSubFolders: false);
     }
 
-    private static void MigrateNavMenuFolders()
-    {
-        var folderOrm = new ORM<Folder>();
-
-        var configFolders = folderOrm.Fetch(new WhereCondition[]
-        {
-            new FieldWhereCondition("folder_behavior_type", QueryMatchType.Equals,
-                typeof(NavMenuConfigProjectFolderBehavior).FullName)
-        });
-
-        foreach (var configFolder in configFolders ?? Array.Empty<Folder>())
-        {
-            var parentId = configFolder.EntityFolderID;
-
-            if (!parentId.EndsWith(".templates"))
-            {
-                folderOrm.Store(configFolder);
-                continue;
-            }
-
-            var projectId    = parentId.Substring(0, parentId.Length - ".templates".Length);
-            var rootFolderId = NavMenuProjectRootFolderBehavior.GetFolderId(projectId);
-            var themesFolderId = NavMenuThemeProjectFolderBehavior.GetFolderId(projectId);
-            var ctx = new SystemUserContext();
-
-            FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
-                ctx, parentId, rootFolderId,
-                "Navigation Menu", typeof(NavMenuProjectRootFolderBehavior).FullName);
-
-            configFolder.EntityName     = "Configs";
-            configFolder.EntityFolderID = rootFolderId;
-            folderOrm.Store(configFolder);
-
-            FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
-                ctx, rootFolderId, themesFolderId,
-                "Themes", typeof(NavMenuThemeProjectFolderBehavior).FullName);
-
-            EnsureProjectDefaultTheme(themesFolderId);
-        }
-    }
-
-    private static void EnsureProjectDefaultTheme(string themesFolderId)
+    private static void EnsureBuiltInThemes()
     {
         var orm = new ORM<NavigationMenuTheme>();
         var existing = orm.Fetch(new WhereCondition[]
         {
-            new FieldWhereCondition("entity_folder_id", QueryMatchType.Equals, themesFolderId)
-        });
-        if (existing != null && existing.Length > 0) return;
+            new FieldWhereCondition("entity_folder_id", QueryMatchType.Equals, NavMenuThemeFolderBehavior.FOLDER_ID)
+        }) ?? Array.Empty<NavigationMenuTheme>();
 
-        var theme = new NavigationMenuTheme { EntityName = "Default" };
-        theme.EntityFolderID = themesFolderId;
-        orm.Store(theme);
+        var existingIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in existing)
+            existingIds.Add(t.GetEntityId() ?? string.Empty);
+
+        foreach (var theme in BuiltInThemes())
+        {
+            if (existingIds.Contains(theme.GetEntityId())) continue;
+            theme.EntityFolderID = NavMenuThemeFolderBehavior.FOLDER_ID;
+            orm.Store(theme);
+        }
     }
+
+    private static NavigationMenuTheme[] BuiltInThemes() => new[]
+    {
+        // Decisions platform color scheme: #253167 navy, #3A85C5 blue, #A6D5F5 light blue
+        new NavigationMenuTheme("NAV_MENU_THEME_DECISIONS")
+        {
+            EntityName             = "Decisions",
+            ControlBackgroundColor = "#253167",
+            SeparatorColor         = "#A6D5F5",
+            SeparatorThickness     = 1,
+            TopLevelStyle = new NavMenuItemStyle
+            {
+                BackgroundColor              = "#253167",
+                HoverBackgroundColor         = "#3A85C5",
+                SelectedBackgroundColor      = "#3A85C5",
+                SelectedHoverBackgroundColor = "#2E72B0",
+                TextColor                    = "#A6D5F5",
+                HoverTextColor               = "#ffffff",
+                SelectedTextColor            = "#ffffff",
+                SelectedHoverTextColor       = "#ffffff",
+                FontFamily                   = "Segoe UI",
+                FontSize                     = 14,
+                FontWeight                   = NavMenuFontWeight.Normal
+            },
+            SubItemStyle = new NavMenuItemStyle
+            {
+                BackgroundColor              = "#ffffff",
+                HoverBackgroundColor         = "#EBF5FB",
+                SelectedBackgroundColor      = "#D6EAF8",
+                SelectedHoverBackgroundColor = "#BCD8F0",
+                TextColor                    = "#253167",
+                HoverTextColor               = "#3A85C5",
+                SelectedTextColor            = "#253167",
+                SelectedHoverTextColor       = "#3A85C5",
+                FontFamily                   = "Segoe UI",
+                FontSize                     = 13,
+                FontWeight                   = NavMenuFontWeight.Normal
+            }
+        },
+
+        // Clean neutral light theme — different font and generous spacing
+        new NavigationMenuTheme("NAV_MENU_THEME_LIGHT")
+        {
+            EntityName             = "Light",
+            ControlBackgroundColor = "#f4f4f4",
+            ItemSpacing            = 8,
+            TopLevelStyle = new NavMenuItemStyle
+            {
+                BackgroundColor              = "#f4f4f4",
+                HoverBackgroundColor         = "#e0e0e0",
+                SelectedBackgroundColor      = "#505050",
+                SelectedHoverBackgroundColor = "#303030",
+                TextColor                    = "#303030",
+                HoverTextColor               = "#101010",
+                SelectedTextColor            = "#ffffff",
+                SelectedHoverTextColor       = "#ffffff",
+                FontFamily                   = "Arial",
+                FontSize                     = 15,
+                FontWeight                   = NavMenuFontWeight.Normal
+            },
+            SubItemStyle = new NavMenuItemStyle
+            {
+                BackgroundColor              = "#ffffff",
+                HoverBackgroundColor         = "#f9f9f9",
+                SelectedBackgroundColor      = "#ececec",
+                SelectedHoverBackgroundColor = "#e0e0e0",
+                TextColor                    = "#404040",
+                HoverTextColor               = "#101010",
+                SelectedTextColor            = "#101010",
+                SelectedHoverTextColor       = "#101010",
+                FontFamily                   = "Arial",
+                FontSize                     = 13,
+                FontWeight                   = NavMenuFontWeight.Normal
+            }
+        },
+
+        // True dark theme — Windows blue accent, Verdana
+        new NavigationMenuTheme("NAV_MENU_THEME_DARK")
+        {
+            EntityName             = "Dark",
+            ControlBackgroundColor = "#1e1e1e",
+            SeparatorColor         = "#3d3d3d",
+            SeparatorThickness     = 1,
+            TopLevelStyle = new NavMenuItemStyle
+            {
+                BackgroundColor              = "#1e1e1e",
+                HoverBackgroundColor         = "#2d2d2d",
+                SelectedBackgroundColor      = "#0078d4",
+                SelectedHoverBackgroundColor = "#006cbe",
+                TextColor                    = "#cccccc",
+                HoverTextColor               = "#ffffff",
+                SelectedTextColor            = "#ffffff",
+                SelectedHoverTextColor       = "#ffffff",
+                FontFamily                   = "Verdana",
+                FontSize                     = 13,
+                FontWeight                   = NavMenuFontWeight.Normal
+            },
+            SubItemStyle = new NavMenuItemStyle
+            {
+                BackgroundColor              = "#252525",
+                HoverBackgroundColor         = "#2d2d2d",
+                SelectedBackgroundColor      = "#1a3a5c",
+                SelectedHoverBackgroundColor = "#1e4470",
+                TextColor                    = "#bbbbbb",
+                HoverTextColor               = "#ffffff",
+                SelectedTextColor            = "#5dafff",
+                SelectedHoverTextColor       = "#5dafff",
+                FontFamily                   = "Verdana",
+                FontSize                     = 12,
+                FontWeight                   = NavMenuFontWeight.Normal
+            }
+        }
+    };
 }

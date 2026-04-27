@@ -13,6 +13,7 @@ using DecisionsFramework.ServiceLayer;
 using DecisionsFramework.ServiceLayer.Actions;
 using DecisionsFramework.ServiceLayer.Actions.Common;
 using DecisionsFramework.ServiceLayer.Services.Folder;
+using DecisionsFramework.ServiceLayer.Services.Projects;
 using DecisionsFramework.ServiceLayer.Utilities;
 
 namespace Decisions.NavigationMenu;
@@ -55,6 +56,11 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
 
     [ORMField]
     private int separatorThickness = 1;
+
+    internal NavigationMenuTheme(string fixedId) : this()
+    {
+        id = fixedId;
+    }
 
     public NavigationMenuTheme()
     {
@@ -185,6 +191,8 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
         set { separatorThickness = value; OnPropertyChanged(nameof(SeparatorThickness)); }
     }
 
+    public override MoveActionTypes AllowDefaultMoveActions() => MoveActionTypes.MoveTo;
+
     public override BaseActionType[] GetActions(AbstractUserContext userContext, EntityActionType[] types)
     {
         var actions = new List<BaseActionType>(base.GetActions(userContext, types));
@@ -248,6 +256,26 @@ public class NavigationMenuTheme : AbstractFolderEntity, INotifyPropertyChanged
             "Import Theme", "Paste JSON here",
             string.Empty, GetTextType.LongText)
         { DialogWidth = 700, DialogHeight = 500 });
+
+        var moveToProject = new MoveEntityToProjectAction(this, projectId =>
+        {
+            var sysCtx       = new SystemUserContext();
+            var rootFolderId   = NavMenuProjectRootFolderBehavior.GetFolderId(projectId);
+            var configFolderId = NavMenuConfigProjectFolderBehavior.GetFolderId(projectId);
+            var themesFolderId = NavMenuThemeProjectFolderBehavior.GetFolderId(projectId);
+            FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
+                sysCtx, projectId + ".templates", rootFolderId,
+                "Navigation Menu", typeof(NavMenuProjectRootFolderBehavior).FullName);
+            FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
+                sysCtx, rootFolderId, configFolderId,
+                "Configs", typeof(NavMenuConfigProjectFolderBehavior).FullName);
+            FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
+                sysCtx, rootFolderId, themesFolderId,
+                "Themes", typeof(NavMenuThemeProjectFolderBehavior).FullName);
+            return themesFolderId;
+        });
+        moveToProject.Category = "More";
+        actions.Add(moveToProject);
 
         return actions.ToArray();
     }

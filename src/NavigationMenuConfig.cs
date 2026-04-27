@@ -13,6 +13,7 @@ using DecisionsFramework.ServiceLayer.Actions;
 using DecisionsFramework.ServiceLayer.Actions.Common;
 using DecisionsFramework.ServiceLayer;
 using DecisionsFramework.ServiceLayer.Services.Folder;
+using DecisionsFramework.ServiceLayer.Services.Projects;
 using DecisionsFramework.ServiceLayer.Utilities;
 
 namespace Decisions.NavigationMenu;
@@ -40,6 +41,12 @@ public class NavigationMenuConfig : AbstractFolderEntity, INotifyPropertyChanged
     private string themeId;
 
     [ORMField]
+    private bool useSystemTheme;
+
+    [ORMField]
+    private string systemThemeId;
+
+    [ORMField]
     private string selectionBusName;
 
     public event PropertyChangedEventHandler PropertyChanged;
@@ -60,12 +67,33 @@ public class NavigationMenuConfig : AbstractFolderEntity, INotifyPropertyChanged
 
     [DataMember]
     [WritableValue]
-    [PropertyClassification(0, "Theme", new[] { "Style" })]
+    [PropertyClassification(0, "Use System Theme", new[] { "Style" })]
+    public bool UseSystemTheme
+    {
+        get => useSystemTheme;
+        set { useSystemTheme = value; OnPropertyChanged(nameof(UseSystemTheme)); }
+    }
+
+    [DataMember]
+    [WritableValue]
+    [PropertyClassification(1, "Theme", new[] { "Style" })]
+    [PropertyHiddenByValue(nameof(UseSystemTheme), true, true)]
     [EntityPickerEditor(new[] { typeof(NavigationMenuTheme) }, "Pick Navigation Menu Theme")]
     public string ThemeId
     {
         get => themeId;
         set { themeId = value; OnPropertyChanged(nameof(ThemeId)); }
+    }
+
+    [DataMember]
+    [WritableValue]
+    [PropertyClassification(2, "System Theme", new[] { "Style" })]
+    [PropertyHiddenByValue(nameof(UseSystemTheme), false, true)]
+    [EntityPickerEditor(new[] { typeof(NavigationMenuTheme) }, NavMenuThemeFolderBehavior.FOLDER_ID, "Pick System Theme", RestrictToProject = false)]
+    public string SystemThemeId
+    {
+        get => systemThemeId;
+        set { systemThemeId = value; OnPropertyChanged(nameof(SystemThemeId)); }
     }
 
     [DataMember]
@@ -115,6 +143,8 @@ public class NavigationMenuConfig : AbstractFolderEntity, INotifyPropertyChanged
         set { }
     }
 
+    public override MoveActionTypes AllowDefaultMoveActions() => MoveActionTypes.MoveTo;
+
     public override BaseActionType[] GetActions(AbstractUserContext userContext, EntityActionType[] types)
     {
         var actions = new List<BaseActionType>(base.GetActions(userContext, types));
@@ -137,6 +167,8 @@ public class NavigationMenuConfig : AbstractFolderEntity, INotifyPropertyChanged
                     EntityFolderID   = original.EntityFolderID,
                     Items            = original.Items,
                     ThemeId          = original.ThemeId,
+                    UseSystemTheme   = original.UseSystemTheme,
+                    SystemThemeId    = original.SystemThemeId,
                     SelectionBusName = original.SelectionBusName
                 };
                 new ORM<NavigationMenuConfig>().Store(copy);
@@ -160,12 +192,34 @@ public class NavigationMenuConfig : AbstractFolderEntity, INotifyPropertyChanged
                 if (imported == null) return;
                 Items            = imported.Items;
                 ThemeId          = imported.ThemeId;
+                UseSystemTheme   = imported.UseSystemTheme;
+                SystemThemeId    = imported.SystemThemeId;
                 SelectionBusName = imported.SelectionBusName;
                 new ORM<NavigationMenuConfig>().Store(this);
             },
             "Import Configuration", "Paste JSON here",
             string.Empty, GetTextType.LongText)
         { DialogWidth = 700, DialogHeight = 500 });
+
+        var moveToProject = new MoveEntityToProjectAction(this, projectId =>
+        {
+            var sysCtx       = new SystemUserContext();
+            var rootFolderId   = NavMenuProjectRootFolderBehavior.GetFolderId(projectId);
+            var configFolderId = NavMenuConfigProjectFolderBehavior.GetFolderId(projectId);
+            var themesFolderId = NavMenuThemeProjectFolderBehavior.GetFolderId(projectId);
+            FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
+                sysCtx, projectId + ".templates", rootFolderId,
+                "Navigation Menu", typeof(NavMenuProjectRootFolderBehavior).FullName);
+            FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
+                sysCtx, rootFolderId, configFolderId,
+                "Configs", typeof(NavMenuConfigProjectFolderBehavior).FullName);
+            FolderStructureHelper.CreateFolderIfNotExistsAndSendEvent(
+                sysCtx, rootFolderId, themesFolderId,
+                "Themes", typeof(NavMenuThemeProjectFolderBehavior).FullName);
+            return configFolderId;
+        });
+        moveToProject.Category = "More";
+        actions.Add(moveToProject);
 
         return actions.ToArray();
     }
@@ -182,6 +236,8 @@ public class NavigationMenuConfig : AbstractFolderEntity, INotifyPropertyChanged
         {
             Items            = items,
             ThemeId          = themeId,
+            UseSystemTheme   = useSystemTheme,
+            SystemThemeId    = systemThemeId,
             SelectionBusName = selectionBusName
         };
         return JsonSerializer.Serialize(dto, _jsonOpts);
@@ -228,6 +284,12 @@ internal sealed class NavMenuConfigDto
 
     [JsonPropertyName("ThemeId")]
     public string ThemeId { get; set; }
+
+    [JsonPropertyName("UseSystemTheme")]
+    public bool UseSystemTheme { get; set; }
+
+    [JsonPropertyName("SystemThemeId")]
+    public string SystemThemeId { get; set; }
 
     [JsonPropertyName("SelectionBusName")]
     public string SelectionBusName { get; set; }

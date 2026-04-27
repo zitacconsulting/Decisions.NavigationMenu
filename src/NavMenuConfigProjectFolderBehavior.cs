@@ -13,22 +13,49 @@ using System.Linq;
 
 namespace Decisions.NavigationMenu;
 
+/// <summary>
+/// Defines the behaviour of the per-project "Configs" folder, which stores
+/// <see cref="NavigationMenuConfig"/> entities that belong to a specific project.
+///
+/// <para>
+/// See <see cref="NavMenuProjectRootFolderBehavior"/> for an explanation of how
+/// project folders work and how their IDs are derived.
+/// </para>
+/// </summary>
 public class NavMenuConfigProjectFolderBehavior : AbstractProjectManageFolderBehavior
 {
+    /// <summary>
+    /// Suffix used to build the folder ID for a given project.
+    /// Example: project <c>"proj123"</c> → folder ID <c>"proj123.navmenu"</c>.
+    /// </summary>
     public const string FOLDER_SUFFIX = "navmenu";
 
+    /// <summary>Returns the folder ID for a given project.</summary>
     public static string GetFolderId(string projectId) => projectId + "." + FOLDER_SUFFIX;
 
+    // Mark the folder as exportable so Decisions includes its contents when a project
+    // is exported. ExportChildrenOnly means we export the configs inside it, not the
+    // folder entity itself (which is recreated automatically on import).
     public override bool IsExportable(Folder f) => true;
-
     public override bool ExportChildrenOnly(Folder folder) => true;
 
+    /// <summary>
+    /// Returns the visual appearance for the React folder tree.
+    /// Uses the standard Decisions project blue (<c>#21659D</c>) to tint both the
+    /// folder label text and the icon SVG.
+    /// </summary>
     public override LookAndFeel GetLookAndFeel(string folderId)
         => new LookAndFeel(folderId, "#21659D", null, NavMenuImages.ConfigIcon);
 
+    /// <summary>
+    /// Builds the list of toolbar actions visible when this folder is open.
+    /// See <see cref="NavMenuConfigFolderBehavior.GetFolderActions"/> for a full
+    /// explanation of the filtering logic — this follows the same pattern.
+    /// </summary>
     public override BaseActionType[] GetFolderActions(Folder folder, BaseActionType[] proposedActions, EntityActionType[] types)
     {
         var list = new List<BaseActionType>();
+
         list.AddRange(proposedActions.Where(a => a is NavigateToFolderAction));
 
         var account = UserContextHolder.GetCurrent().GetAccount();
@@ -51,6 +78,7 @@ public class NavMenuConfigProjectFolderBehavior : AbstractProjectManageFolderBeh
         return list.ToArray();
     }
 
+    // Allow both NavigationMenuConfig entities and sub-folders inside this folder.
     public override bool CanAddEntity(AbstractFolderEntity entity)
         => entity is NavigationMenuConfig || entity is Folder;
 }

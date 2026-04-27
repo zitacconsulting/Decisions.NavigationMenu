@@ -37,11 +37,27 @@ A custom page component module for the [Decisions](https://decisions.com) platfo
 ### Option 2: Build from Source
 See the [Building from Source](#building-from-source) section below.
 
+## Folder Structure
+
+The module creates folders at two levels:
+
+**System level** (under the top-level **Navigation Menu** folder in the system tree):
+- **Navigation Menu > Configs** — themes and configurations stored here are available across all projects and are managed by administrators.
+- **Navigation Menu > Themes** — same scope as Configs. Themes stored here can be referenced by any configuration in any project.
+
+**Project level** (inside each Decisions project):
+- **[Project] > Navigation Menu > Configs** — configurations scoped to that project.
+- **[Project] > Navigation Menu > Themes** — themes scoped to that project.
+
+Use system-level entities when you want to share a theme or configuration across multiple projects. Use project-level entities when the configuration belongs to a specific project and should be exported and imported together with it (project-level configurations and themes are included in project exports automatically).
+
+---
+
 ## Configuration
 
 ### Step 1 — Create a Theme (optional)
 
-Navigate to **Navigation Menu > Themes** and create a theme to control the visual appearance.
+Navigate to **Navigation Menu > Themes** (system level) or to your project's **Navigation Menu > Themes** folder, and create a theme to control the visual appearance.
 
 | Property | Description |
 |---|---|
@@ -59,7 +75,7 @@ Themes can be exported and imported as JSON using the **Export JSON** and **Impo
 
 ### Step 2 — Create a Menu Configuration
 
-Navigate to **Navigation Menu > Configurations** and create a configuration.
+Navigate to **Navigation Menu > Configs** (system level) or your project's **Navigation Menu > Configs** folder, and create a configuration.
 
 | Property | Description |
 |---|---|
