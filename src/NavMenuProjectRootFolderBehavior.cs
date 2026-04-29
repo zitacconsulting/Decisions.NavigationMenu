@@ -50,6 +50,31 @@ public class NavMenuProjectRootFolderBehavior : AbstractProjectManageFolderBehav
         => new LookAndFeel(folderId, "#21659D", null, NavMenuImages.RootIcon);
 
     /// <summary>
+    /// Marks this folder as exportable so it is included in project exports and check-in
+    /// packages. The folder entity itself (not just its children) must be in the export so
+    /// that on project checkout to a new server, the folder record is recreated with the
+    /// same ID before the Configs and Themes sub-folders (which reference this folder as
+    /// their parent) are imported.
+    ///
+    /// <para>
+    /// <c>ExportChildrenOnly</c> defaults to <c>false</c> (from
+    /// <see cref="DefaultFolderBehavior"/>) — this means the folder entity itself IS
+    /// included in the export alongside its children.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Important:</b> <c>IsFolderExportable</c> is a computed <c>[ORMField]</c> on
+    /// <see cref="DecisionsFramework.ServiceLayer.Services.Folder.Folder"/>. The DB column
+    /// is only written when the folder entity is stored — it is NOT read back on load (the
+    /// getter always calls the behavior at runtime). This means existing folders created by
+    /// an older version of the module need to be re-stored once to update the DB column.
+    /// <see cref="NavigationMenuModule.Initialize"/> handles this via
+    /// <c>EnsureProjectFolders()</c> on every server start.
+    /// </para>
+    /// </summary>
+    public override bool IsExportable(Folder f) => true;
+
+    /// <summary>
     /// No toolbar actions are shown for this root folder — users navigate into
     /// the Configs or Themes sub-folders to create or manage entities.
     /// </summary>

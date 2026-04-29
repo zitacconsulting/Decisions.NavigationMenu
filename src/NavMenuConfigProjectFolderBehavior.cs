@@ -33,11 +33,28 @@ public class NavMenuConfigProjectFolderBehavior : AbstractProjectManageFolderBeh
     /// <summary>Returns the folder ID for a given project.</summary>
     public static string GetFolderId(string projectId) => projectId + "." + FOLDER_SUFFIX;
 
-    // Mark the folder as exportable so Decisions includes its contents when a project
-    // is exported. ExportChildrenOnly means we export the configs inside it, not the
-    // folder entity itself (which is recreated automatically on import).
+    /// <summary>
+    /// Marks this folder as exportable and ensures the folder entity itself is included
+    /// in the export (not just its children).
+    ///
+    /// <para>
+    /// <b>Why the folder entity must be exported (<c>ExportChildrenOnly = false</c>):</b>
+    /// When a project is checked out to a server where it has never existed before,
+    /// <c>OnDependencyAdded</c> is NOT called — only the data records from the export ZIP
+    /// are imported. The import system creates folder entities before non-folder entities,
+    /// so if the config folder record is in the ZIP, it is created before the
+    /// <see cref="NavigationMenuConfig"/> entities that reference it as their parent. Without
+    /// the folder record in the export, those configs land in "Orphan Entities".
+    /// </para>
+    ///
+    /// <para>
+    /// See <see cref="NavMenuProjectRootFolderBehavior.IsExportable"/> for a full
+    /// explanation of how <c>IsFolderExportable</c> (a computed <c>[ORMField]</c>) works
+    /// and why <see cref="NavigationMenuModule"/> re-stores existing folders on startup.
+    /// </para>
+    /// </summary>
     public override bool IsExportable(Folder f) => true;
-    public override bool ExportChildrenOnly(Folder folder) => true;
+    public override bool ExportChildrenOnly(Folder folder) => false;
 
     /// <summary>
     /// Returns the visual appearance for the React folder tree.

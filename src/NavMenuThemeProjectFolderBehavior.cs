@@ -46,6 +46,26 @@ public class NavMenuThemeProjectFolderBehavior : AbstractProjectManageFolderBeha
     public override LookAndFeel GetLookAndFeel(string folderId)
         => new LookAndFeel(folderId, "#21659D", null, NavMenuImages.ThemeProjectIcon);
 
+    /// <summary>
+    /// Marks this folder as exportable so themes are included in project check-in and
+    /// export packages. Without this, <c>is_folder_exportable = false</c> in the DB and
+    /// the project check-in scanner never visits this folder — theme changes go undetected.
+    ///
+    /// <para>
+    /// <c>ExportChildrenOnly</c> defaults to <c>false</c>, so both the folder record itself
+    /// and the theme entities inside it are included in the export. The folder record must
+    /// be in the export so it is recreated on checkout before the theme entities that
+    /// reference it as their parent folder.
+    /// </para>
+    ///
+    /// <para>
+    /// See <see cref="NavMenuProjectRootFolderBehavior.IsExportable"/> for a full
+    /// explanation of how <c>IsFolderExportable</c> (a computed <c>[ORMField]</c>) works
+    /// and why <see cref="NavigationMenuModule"/> re-stores existing folders on startup.
+    /// </para>
+    /// </summary>
+    public override bool IsExportable(Folder f) => true;
+
     // Allow both NavigationMenuTheme entities and sub-folders inside this folder.
     public override bool CanAddEntity(AbstractFolderEntity entity)
         => entity is NavigationMenuTheme || entity is Folder;
