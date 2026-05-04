@@ -83,18 +83,51 @@ public class NavMenuItemStyle
 
     [WritableValue]
     [DataMember]
-    [PropertyClassification(10, "Font Family", new[] { "Font" })]
+    [PropertyClassification(8, "SVG Icon: Use Font Color", new[] { "Colors" })]
+    public bool SvgUseFontColor { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(9, "SVG Icon Color", new[] { "Colors" })]
+    [ColorPickerEditor(true, true)]
+    [PropertyHiddenByValue(nameof(SvgUseFontColor), true, true)]
+    public string SvgIconColor { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(10, "SVG Hover Icon Color", new[] { "Colors" })]
+    [ColorPickerEditor(true, true)]
+    [PropertyHiddenByValue(nameof(SvgUseFontColor), true, true)]
+    public string SvgHoverIconColor { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(11, "SVG Selected Icon Color", new[] { "Colors" })]
+    [ColorPickerEditor(true, true)]
+    [PropertyHiddenByValue(nameof(SvgUseFontColor), true, true)]
+    public string SvgSelectedIconColor { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(12, "SVG Selected Hover Icon Color", new[] { "Colors" })]
+    [ColorPickerEditor(true, true)]
+    [PropertyHiddenByValue(nameof(SvgUseFontColor), true, true)]
+    public string SvgSelectedHoverIconColor { get; set; }
+
+    [WritableValue]
+    [DataMember]
+    [PropertyClassification(20, "Font Family", new[] { "Font" })]
     [SelectStringEditor("FontFamilyList", SelectStringEditorType.DropdownList, true)]
     public string FontFamily { get; set; }
 
     [WritableValue]
     [DataMember]
-    [PropertyClassification(11, "Font Size (px)", new[] { "Font" })]
+    [PropertyClassification(21, "Font Size (px)", new[] { "Font" })]
     public int FontSize { get; set; }
 
     [WritableValue]
     [DataMember]
-    [PropertyClassification(12, "Font Weight", new[] { "Font" })]
+    [PropertyClassification(22, "Font Weight", new[] { "Font" })]
     public NavMenuFontWeight FontWeight { get; set; }
 
     [PropertyHidden]

@@ -196,7 +196,10 @@ $DP.Components.Page.NavMenu = (function () {
 
         _syncBusToUrl(busName, busValue);
 
-        if (!$match) return;
+        if (!$match) {
+            _updateIconStates(instanceId);
+            return;
+        }
 
         $match.addClass('dp-navmenu-active');
 
@@ -206,6 +209,8 @@ $DP.Components.Page.NavMenu = (function () {
         if ($top && $top[0] !== $match[0]) {
             $top.addClass('dp-navmenu-active');
         }
+
+        _updateIconStates(instanceId);
     }
 
     /**
@@ -378,7 +383,7 @@ $DP.Components.Page.NavMenu = (function () {
         return css;
     }
 
-    // ── Icon helper ──────────────────────────────────────────────────────────
+    // ── Icon helpers ─────────────────────────────────────────────────────────
 
     /**
      * Converts an ImageInfo object (as serialised by the C# platform) into an <img>
@@ -417,6 +422,106 @@ $DP.Components.Page.NavMenu = (function () {
 
         if (!url) return null;
         return $('<img>').addClass('dp-navmenu-icon').attr({ src: url, alt: '' });
+    }
+
+    /**
+     * Builds the four state-specific URLs for a StoredImage SVG icon.
+     * Only StoredImage (ImageType === 2) supports color variants.
+     *
+     * Decisions pre-renders colored icons as separate PNG files with the hex color
+     * appended to the stem, e.g. "FOLDER|icon_100_100.png" becomes
+     * "FOLDER|icon_100_100_FF0000.png". See _coloredImageId for details.
+     *
+     * Returns null when no colors are configured so the caller skips wiring entirely.
+     * When a state's color is empty the original ImageId is used unchanged, so the
+     * icon renders with the color chosen in the Decisions image picker.
+     */
+    function _buildIconUrls(icon, style) {
+        if (!icon || icon.ImageType !== 2 || !icon.ImageId) return null;
+        if (!style) return null;
+
+        var useFontColor = !!style.SvgUseFontColor;
+
+        var normal, hover, selected, selectedHover;
+        if (useFontColor) {
+            normal        = style.TextColor;
+            hover         = style.HoverTextColor;
+            selected      = style.SelectedTextColor;
+            selectedHover = style.SelectedHoverTextColor;
+        } else {
+            normal        = style.SvgIconColor;
+            hover         = style.SvgHoverIconColor;
+            selected      = style.SvgSelectedIconColor;
+            selectedHover = style.SvgSelectedHoverIconColor;
+        }
+
+        if (!normal && !hover && !selected && !selectedHover) return null;
+
+        var base = (typeof virtualPath !== 'undefined' ? virtualPath : '');
+        var colorUrl = function (hex) {
+            return base + '/Handlers/SvgImage.ashx?svgFile=' + encodeURIComponent(_coloredImageId(icon.ImageId, hex));
+        };
+
+        return {
+            normal:        colorUrl(normal),
+            hover:         colorUrl(hover),
+            selected:      colorUrl(selected),
+            selectedHover: colorUrl(selectedHover)
+        };
+    }
+
+    /**
+     * Returns an ImageId with the hex color suffix replaced or appended.
+     *
+     * Decisions stores pre-colored icon variants by appending the 6-char uppercase
+     * hex to the filename stem before the extension:
+     *   "FOLDER|icon_100_100.png"        → no color (original)
+     *   "FOLDER|icon_100_100_37FF92.png" → pre-colored green
+     *
+     * If color is empty/null the original imageId is returned so the icon falls back
+     * to the color chosen when the icon was picked in the Decisions image picker.
+     */
+    function _coloredImageId(imageId, color) {
+        if (!color) return imageId;
+
+        var hex = color.replace('#', '').toUpperCase();
+        if (!/^[0-9A-F]{6}$/.test(hex)) return imageId;
+
+        var pipeIdx = imageId.indexOf('|');
+        if (pipeIdx === -1) return imageId;
+
+        var folder   = imageId.substring(0, pipeIdx);
+        var filename = imageId.substring(pipeIdx + 1);
+        var dotIdx   = filename.lastIndexOf('.');
+        var ext      = dotIdx > -1 ? filename.substring(dotIdx) : '';
+        var stem     = dotIdx > -1 ? filename.substring(0, dotIdx) : filename;
+        var parts    = stem.split('_');
+
+        // Strip any existing color suffix before appending the new one
+        if (parts.length > 0 && /^[0-9A-Fa-f]{6}$/.test(parts[parts.length - 1])) {
+            parts.pop();
+        }
+
+        parts.push(hex);
+        return folder + '|' + parts.join('_') + ext;
+    }
+
+    /**
+     * After _updateActiveItem changes which item carries dp-navmenu-active,
+     * update each icon's src to match the new selected/normal state.
+     * Mouse-hover state is handled separately via the mouseenter/mouseleave
+     * handlers wired in _renderItem.
+     */
+    function _updateIconStates(instanceId) {
+        var opts = _instances[instanceId];
+        if (!opts) return;
+        opts.holder.find('.dp-navmenu-item').each(function () {
+            var $li = $(this);
+            var urls = $li.data('dp-icon-urls');
+            if (!urls) return;
+            $li.find('> .dp-navmenu-link > .dp-navmenu-icon')
+               .attr('src', $li.hasClass('dp-navmenu-active') ? urls.selected : urls.normal);
+        });
     }
 
     // ── Rendering ───────────────────────────────────────────────────────────
@@ -503,6 +608,22 @@ $DP.Components.Page.NavMenu = (function () {
         } else {
             if ($icon) $a.append($icon);
             $a.append($label);
+        }
+
+        // SVG icon color: build four state-specific URLs and swap src on state changes.
+        // Only applies to StoredImage SVGs — other icon types render without color tinting.
+        if ($icon && item.Icon) {
+            var effectiveStyle = item.StyleOverride || (isSubItem ? opts.subItemStyle : opts.topLevelStyle);
+            var iconUrls = _buildIconUrls(item.Icon, effectiveStyle);
+            if (iconUrls) {
+                $icon.attr('src', iconUrls.normal);
+                $li.data('dp-icon-urls', iconUrls);
+                $a.on('mouseenter.iconcolor', function () {
+                    $icon.attr('src', $li.hasClass('dp-navmenu-active') ? iconUrls.selectedHover : iconUrls.hover);
+                }).on('mouseleave.iconcolor', function () {
+                    $icon.attr('src', $li.hasClass('dp-navmenu-active') ? iconUrls.selected : iconUrls.normal);
+                });
+            }
         }
 
         if (hasDropdown) {
