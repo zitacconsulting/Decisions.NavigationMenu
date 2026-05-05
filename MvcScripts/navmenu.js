@@ -497,12 +497,25 @@ $DP.Components.Page.NavMenu = (function () {
         var stem     = dotIdx > -1 ? filename.substring(0, dotIdx) : filename;
         var parts    = stem.split('_');
 
-        // Strip any existing color suffix before appending the new one
-        if (parts.length > 0 && /^[0-9A-Fa-f]{6}$/.test(parts[parts.length - 1])) {
-            parts.pop();
+        // Decisions filenames are: {name}_{width}_{height}[_{color}]
+        // The color suffix can be a hex code (FFFFFF) or a color name (white, black).
+        // Find the last pair of consecutive numeric parts — that is the dimension pair.
+        // Everything after those two parts is the existing color suffix and should be replaced.
+        var dimEnd = -1;
+        for (var i = parts.length - 2; i >= 0; i--) {
+            if (/^\d+$/.test(parts[i]) && /^\d+$/.test(parts[i + 1])) {
+                dimEnd = i + 1;
+                break;
+            }
         }
 
-        parts.push(hex);
+        if (dimEnd === -1) {
+            parts.push(hex);
+        } else {
+            parts = parts.slice(0, dimEnd + 1);
+            parts.push(hex);
+        }
+
         return folder + '|' + parts.join('_') + ext;
     }
 

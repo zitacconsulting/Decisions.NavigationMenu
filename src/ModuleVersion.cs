@@ -2,5 +2,5 @@ namespace Decisions.NavigationMenu;
 
 public static class ModuleVersion
 {
-    public const string Current = "1.0.10";
+    public const string Current = "1.0.11";
 }
