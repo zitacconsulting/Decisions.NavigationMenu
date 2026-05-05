@@ -86,6 +86,7 @@ public class NavigationMenuItemDef : IProjectAware
     public bool HidePortal { get; set; }
 
     [PropertyHidden(true)]
+    [System.Text.Json.Serialization.JsonIgnore]
     public string[] PageNameList
     {
         get
@@ -109,6 +110,7 @@ public class NavigationMenuItemDef : IProjectAware
     [InfoOrWarningEditor(false, null, true)]
     [PropertyClassification(5, "Selection Bus Value Info", new[] { "Selection Bus" })]
     [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
+    [System.Text.Json.Serialization.JsonIgnore]
     public string SelectionBusValueNote
     {
         get => "Requires a Selection Bus Name to be configured on the menu configuration.";
@@ -125,6 +127,7 @@ public class NavigationMenuItemDef : IProjectAware
     [InfoOrWarningEditor(false, null, true)]
     [PropertyClassification(6, "Action Flow Info", new[] { "Action" })]
     [PropertyHiddenByValue(nameof(OpenUrl), true, true)]
+    [System.Text.Json.Serialization.JsonIgnore]
     public string FlowNote
     {
         get => "Must be of type User Action Flow (Folder Aware). When Open in New Window is enabled, the flow runs automatically on the new page after it loads.";
